@@ -2,9 +2,9 @@ import { join } from "path";
 import { mkdirSync, writeFileSync, rmSync } from "fs";
 import { loadConfig, resolveProjectConfig, getEnabledProjects } from "../core/config";
 import { openMemDb, queryObservations, epochToIsoString } from "../core/mem-db";
-import { openAccessDb, logExport } from "../core/access-db";
+import { openAccessDb, logExport, markSynced, getSyncedKeys } from "../core/access-db";
 import { matchesFilter } from "../core/filter";
-import { newSinceLastExport } from "../core/export-delta";
+import { newSinceLastExport, obsKey } from "../core/export-delta";
 import {
   shallowClone,
   gitAdd,
@@ -28,6 +28,7 @@ interface Exported {
   projectName: string;
   count: number;
   relativePath: string;
+  keys: string[];
 }
 
 export default async function run(args: ParsedArgs): Promise<void> {
@@ -113,7 +114,7 @@ async function exportStore(
     const exported: Exported[] = [];
     for (const name of projectNames) {
       try {
-        const e = await stageProject(name, config, repoDir);
+        const e = await stageProject(name, config, repoDir, accessDb);
         if (e) exported.push(e);
       } catch (err) {
         logger.error(`Export failed for project "${name}"`, { error: String(err) });
@@ -168,6 +169,7 @@ async function exportStore(
 
     for (const e of exported) {
       logExport(accessDb, e.projectName, e.count, e.relativePath, pushedTo);
+      markSynced(accessDb, e.projectName, e.keys); // only after a successful push
       console.log(`\nExport complete for "${e.projectName}": ${e.count} new observations -> ${pushedTo}`);
     }
   } finally {
@@ -180,6 +182,7 @@ async function stageProject(
   projectName: string,
   config: Config,
   repoDir: string,
+  accessDb: ReturnType<typeof openAccessDb>,
 ): Promise<Exported | null> {
   const { resolved, filtered } = loadFiltered(projectName, config);
 
@@ -193,6 +196,7 @@ async function stageProject(
     devDir,
     join(repoDir, "merged", projectName, "latest.json"),
     filtered,
+    getSyncedKeys(accessDb, projectName),
   );
   if (delta.length === 0) {
     console.log(`\nNo new observations for "${projectName}". Nothing to push.`);
@@ -227,7 +231,7 @@ async function stageProject(
     `mem-sync: export ${delta.length} observations from ${config.global.devName} (${projectName})`,
   );
 
-  return { projectName, count: delta.length, relativePath };
+  return { projectName, count: delta.length, relativePath, keys: delta.map(obsKey) };
 }
 
 function formatTimestamp(date: Date): string {

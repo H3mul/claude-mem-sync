@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS export_log (
   pushed_to TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_export_time ON export_log(project, exported_at DESC);
+
+CREATE TABLE IF NOT EXISTS synced_obs (
+  project TEXT NOT NULL,
+  obs_key TEXT NOT NULL,
+  PRIMARY KEY (project, obs_key)
+);
 `;
 
 export function openAccessDb(dbPath: string = ACCESS_DB_PATH): SqliteDatabase {
@@ -145,4 +151,15 @@ export function pruneOldAccessEntries(db: SqliteDatabase, windowMonths: number):
     `DELETE FROM access_log WHERE accessed_at < ?`
   ).run(cutoff);
   return result.changes;
+}
+
+/** Remember observations already in the store (exported by us or imported), so cap-evicted ones aren't re-exported. */
+export function markSynced(db: SqliteDatabase, project: string, keys: string[]): void {
+  const stmt = db.prepare("INSERT OR IGNORE INTO synced_obs (project, obs_key) VALUES (?, ?)");
+  db.transaction(() => keys.forEach((k) => stmt.run(project, k)))();
+}
+
+export function getSyncedKeys(db: SqliteDatabase, project: string): Set<string> {
+  const rows = db.prepare("SELECT obs_key FROM synced_obs WHERE project = ?").all(project) as { obs_key: string }[];
+  return new Set(rows.map((r) => r.obs_key));
 }

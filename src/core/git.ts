@@ -111,7 +111,15 @@ export async function gitCommit(repoDir: string, message: string): Promise<void>
 
 export async function gitPush(repoDir: string): Promise<void> {
   logger.info("Pushing to remote", { repoDir });
-  await runCommand(["git", "push"], { cwd: repoDir });
+  try {
+    await runCommand(["git", "push"], { cwd: repoDir });
+  } catch (err) {
+    // Remote moved since our shallow clone (CI merge bot, another host). Our files are
+    // unique per dev/timestamp, so a rebase is conflict-free; retry once.
+    logger.warn("Push rejected, rebasing and retrying once", { error: String(err) });
+    await runCommand(["git", "pull", "--rebase"], { cwd: repoDir });
+    await runCommand(["git", "push"], { cwd: repoDir });
+  }
 }
 
 export async function gitCheckoutNewBranch(repoDir: string, branchName: string): Promise<void> {

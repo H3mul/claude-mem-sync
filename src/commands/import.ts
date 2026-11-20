@@ -1,9 +1,10 @@
 import { join } from "path";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, rmSync } from "fs";
+import { obsKey } from "../core/export-delta";
 import { sha256 } from "../core/compat";
 import { loadConfig, resolveProjectConfig, getEnabledProjects } from "../core/config";
 import { openMemDbWritable, checkDuplicate, insertObservation, ensureSession, rebuildFts, runIntegrityCheck } from "../core/mem-db";
-import { openAccessDb, isFileImported, logImport } from "../core/access-db";
+import { openAccessDb, isFileImported, logImport, markSynced } from "../core/access-db";
 import { shallowClone } from "../core/git";
 import { EXPORT_JSON_VERSION } from "../core/constants";
 import { discoverProjects } from "../core/discover";
@@ -20,19 +21,42 @@ export default async function run(args: ParsedArgs): Promise<void> {
     return;
   }
 
-  const accessDb = openAccessDb();
-
-  for (const projectName of projectNames) {
+  // Group projects by store repo so each store is cloned once per run.
+  const stores = new Map<string, string[]>();
+  for (const name of projectNames) {
     try {
-      await importProject(projectName, config, accessDb);
+      const key = JSON.stringify(resolveProjectConfig(config, name).remote);
+      stores.set(key, [...(stores.get(key) ?? []), name]);
     } catch (err) {
-      logger.error(`Import failed for project "${projectName}"`, {
-        error: String(err),
-      });
+      logger.error(`Import failed for project "${name}"`, { error: String(err) });
     }
   }
 
-  accessDb.close();
+  const accessDb = openAccessDb();
+  try {
+    for (const names of stores.values()) {
+      let repoDir: string | undefined;
+      try {
+        repoDir = await shallowClone(resolveProjectConfig(config, names[0]).remote);
+      } catch (err) {
+        logger.error(`Clone failed for store of ${names.join(", ")}`, { error: String(err) });
+        continue;
+      }
+      try {
+        for (const projectName of names) {
+          try {
+            await importProject(projectName, config, accessDb, repoDir);
+          } catch (err) {
+            logger.error(`Import failed for project "${projectName}"`, { error: String(err) });
+          }
+        }
+      } finally {
+        rmSync(repoDir, { recursive: true, force: true }); // don't leak temp clones
+      }
+    }
+  } finally {
+    accessDb.close();
+  }
 }
 
 function resolveProjectNames(
@@ -49,6 +73,7 @@ async function importProject(
   projectName: string,
   config: ReturnType<typeof loadConfig>,
   accessDb: ReturnType<typeof openAccessDb>,
+  repoDir: string,
 ): Promise<void> {
   const resolved = resolveProjectConfig(config, projectName);
 
@@ -56,9 +81,6 @@ async function importProject(
     memProject: resolved.memProject,
     remote: resolved.remote,
   });
-
-  // Clone/pull remote repo
-  const repoDir = await shallowClone(resolved.remote);
 
   // Read merged file
   const mergedPath = join(repoDir, "merged", projectName, "latest.json");
@@ -76,6 +98,7 @@ async function importProject(
 
   // Check if already imported
   if (isFileImported(accessDb, projectName, fileHash)) {
+    recordSynced(accessDb, projectName, fileContent); // backfills hosts that imported before synced tracking existed
     logger.info(`Project "${projectName}" is up to date (file hash ${fileHash} already imported).`);
     console.log(`Project "${projectName}": already up to date.`);
     return;
@@ -147,10 +170,21 @@ async function importProject(
     memDb.close();
   }
 
+  recordSynced(accessDb, projectName, fileContent);
+
   // Log to import_log
   logImport(accessDb, projectName, fileHash, newCount, exportFile.exportedBy);
 
   const summary = `Imported ${newCount} new observations (${skippedCount} skipped as duplicates)`;
   logger.info(summary, { project: projectName });
   console.log(`Project "${projectName}": ${summary}`);
+}
+
+/** Everything in the merged file is already in the store: never re-export it as ours. */
+function recordSynced(accessDb: ReturnType<typeof openAccessDb>, project: string, fileContent: string): void {
+  try {
+    markSynced(accessDb, project, (JSON.parse(fileContent).observations as ExportFile["observations"]).map(obsKey));
+  } catch {
+    // unparseable file is handled by the import path itself
+  }
 }
