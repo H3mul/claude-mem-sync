@@ -6,12 +6,13 @@ import { openMemDbWritable, checkDuplicate, insertObservation, ensureSession, re
 import { openAccessDb, isFileImported, logImport } from "../core/access-db";
 import { shallowClone } from "../core/git";
 import { EXPORT_JSON_VERSION } from "../core/constants";
+import { discoverProjects } from "../core/discover";
 import { logger } from "../core/logger";
 import type { ExportFile } from "../types/observation";
 import type { ParsedArgs } from "../cli";
 
 export default async function run(args: ParsedArgs): Promise<void> {
-  const config = loadConfig();
+  const config = await discoverProjects(loadConfig(), { skip: !!args.project, store: true });
   const projectNames = resolveProjectNames(args, config);
 
   if (projectNames.length === 0) {

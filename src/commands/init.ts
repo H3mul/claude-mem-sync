@@ -137,6 +137,7 @@ export default async function run(_args: ParsedArgs): Promise<void> {
         mergeCapPerProject: 500,
         exportSchedule: DEFAULT_EXPORT_SCHEDULE,
         logLevel: "info",
+        autoDiscover: false,
         contributionRetentionDays: 30,
         profiles: { enabled: false, anonymizeOthers: true },
         distillation: {
