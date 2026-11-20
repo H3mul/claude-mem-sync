@@ -42,7 +42,6 @@ const COMMANDS: Record<string, CommandLoader> = {
   import: () => import("./commands/import"),
   preview: () => import("./commands/preview"),
   maintain: () => import("./commands/maintain"),
-  compact: () => import("./commands/compact"),
   status: () => import("./commands/status"),
   schedule: null, // has subcommands: install, remove
   "ci-merge": () => import("./commands/ci-merge"),
@@ -75,7 +74,6 @@ Commands:
   import                  Import merged memories from git
   preview                 Dry-run: show what would be exported
   maintain                Database maintenance (backup, prune, vacuum)
-  compact                 Merge your committed contribution files into one (dedupe)
   status                  Health check dashboard
   schedule install        Install OS scheduled tasks
   schedule remove         Remove OS scheduled tasks

@@ -10,7 +10,6 @@
 | `mem-sync preview` | dry-run export matching |
 | `mem-sync export` | export filtered observations |
 | `mem-sync import` | import merged observations |
-| `mem-sync compact [--project X] [--dry-run]` | merge your committed contribution files into one deduped file |
 | `mem-sync maintain` | backup, prune, optimize |
 | `mem-sync status` | health check |
 | `mem-sync schedule install` | install scheduled tasks |
