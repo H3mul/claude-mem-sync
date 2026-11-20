@@ -124,6 +124,11 @@ const ALLOWED_FTS_TABLES: ReadonlySet<string> = new Set([
 
 export function rebuildFts(db: SqliteDatabase): void {
   for (const table of ALLOWED_FTS_TABLES) {
+    // Older/fresh claude-mem DBs may lack some FTS tables; nothing to rebuild then.
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE name = ?").get(table)) {
+      logger.debug(`Skipping FTS5 rebuild, table absent: ${table}`);
+      continue;
+    }
     try {
       // FTS5 rebuild requires table name interpolation (can't use ? for table names).
       // Safety: table is validated against ALLOWED_FTS_TABLES whitelist above.
