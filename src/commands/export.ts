@@ -17,6 +17,7 @@ import {
   getProviderCliInfo,
 } from "../core/git";
 import { EXPORT_JSON_VERSION, PACKAGE_VERSION } from "../core/constants";
+import { discoverProjects } from "../core/discover";
 import { logger } from "../core/logger";
 import type { Observation, ExportFile } from "../types/observation";
 import type { ParsedArgs } from "../cli";
@@ -30,7 +31,7 @@ interface Exported {
 }
 
 export default async function run(args: ParsedArgs): Promise<void> {
-  const config = loadConfig();
+  const config = await discoverProjects(loadConfig(), { skip: !!args.project, store: false });
   const projectNames = args.project ? [args.project] : getEnabledProjects(config);
 
   if (projectNames.length === 0) {
