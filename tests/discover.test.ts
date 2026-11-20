@@ -1,13 +1,11 @@
-import { describe, test, expect, mock } from "bun:test";
+import { describe, test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtempSync, mkdirSync, readFileSync } from "fs";
+import { mkdtempSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
 const home = mkdtempSync(join(tmpdir(), "discover-"));
-// CONFIG_PATH comes from homedir() (ignores $HOME under bun), so mock it before import
-mock.module("os", () => ({ ...require("os"), homedir: () => home }));
-mkdirSync(join(home, ".claude-mem-sync"));
+const configPath = join(home, "config.json"); // never touch the real config
 const dbPath = join(home, "mem.db");
 const db = new Database(dbPath);
 db.run("CREATE TABLE observations (id INTEGER PRIMARY KEY, project TEXT)");
@@ -30,10 +28,10 @@ describe("discoverProjects", () => {
   });
 
   test("adds local projects, cloning the first project's settings, and persists", async () => {
-    const next = await discoverProjects(mk(true));
+    const next = await discoverProjects(mk(true), { configPath });
     expect(Object.keys(next.projects).sort()).toEqual(["fresh", "known"]);
     expect(next.projects.fresh).toEqual(next.projects.known);
-    const saved = JSON.parse(readFileSync(join(home, ".claude-mem-sync", "config.json"), "utf-8"));
+    const saved = JSON.parse(readFileSync(configPath, "utf-8"));
     expect(saved.projects.fresh.export.tags).toEqual(["#shared"]);
   });
 });

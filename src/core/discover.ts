@@ -15,7 +15,7 @@ import type { Config } from "../types/config";
  */
 export async function discoverProjects(
   config: Config,
-  opts: { skip?: boolean; store?: boolean } = {},
+  opts: { skip?: boolean; store?: boolean; configPath?: string } = {},
 ): Promise<Config> {
   if (!config.global.autoDiscover || opts.skip) return config;
   const first = getEnabledProjects(config)[0];
@@ -56,7 +56,7 @@ export async function discoverProjects(
   const projects = { ...config.projects };
   for (const n of added) projects[n] = structuredClone(tpl);
   const next = { ...config, projects };
-  writeFileSync(CONFIG_PATH, JSON.stringify(next, null, 2) + "\n", "utf-8");
+  writeFileSync(opts.configPath ?? CONFIG_PATH, JSON.stringify(next, null, 2) + "\n", "utf-8");
   logger.info(`Auto-discover: added ${added.length} project(s)`, { added });
   console.log(`Auto-discover: added ${added.join(", ")}`);
   return next;
