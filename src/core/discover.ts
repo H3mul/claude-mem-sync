@@ -9,7 +9,7 @@ import type { Config } from "../types/config";
 
 /**
  * Opt-in (global.autoDiscover): register claude-mem projects that aren't in the
- * config yet, cloning the first enabled project's remote/export settings.
+ * config yet, using global.discoverTemplate (or else the first enabled project's remote/export settings).
  * Sources: the local claude-mem DB, plus (store: true) the store's merged/ dirs.
  * Persists to the config file. Never removes projects.
  */
@@ -19,8 +19,10 @@ export async function discoverProjects(
 ): Promise<Config> {
   if (!config.global.autoDiscover || opts.skip) return config;
   const first = getEnabledProjects(config)[0];
-  if (!first) return config;
-  const tpl = config.projects[first];
+  const tpl = config.global.discoverTemplate
+    ? { enabled: true, ...config.global.discoverTemplate }
+    : first ? config.projects[first] : undefined;
+  if (!tpl) return config; // nothing to copy settings from
 
   const names = new Set<string>();
   try {

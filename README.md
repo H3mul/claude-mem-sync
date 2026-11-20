@@ -700,6 +700,7 @@ Created by `mem-sync init` or manually. See `templates/config.example.json` for 
 | `logLevel` | string | `"info"` | Log verbosity |
 | `claudeMemDbPath` | string | `~/.claude-mem/claude-mem.db` | Path to claude-mem's database |
 | `autoDiscover` | boolean | `false` | Opt-in. Before `export`/`import` (without `--project`), add claude-mem projects found in the local DB (and, on import, in the store's `merged/`) to the config, copying the first enabled project's remote/export settings. Never removes projects |
+| `discoverTemplate` | object | – | `{ remote, export }` applied to auto-discovered projects. Lets `projects` start empty; without it the first enabled project is copied |
 | `contributionRetentionDays` | number | `30` | Days to keep processed contribution files before auto-cleanup |
 | `profiles.enabled` | boolean | `false` | Enable developer knowledge profile generation |
 | `profiles.anonymizeOthers` | boolean | `true` | Show "your data vs team average" — never name other devs |

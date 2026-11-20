@@ -77,6 +77,8 @@ export const GlobalConfigSchema = z.object({
   logLevel: z.enum(["debug", "info", "warn", "error"]).default(DEFAULT_LOG_LEVEL),
   claudeMemDbPath: z.string().default(DEFAULT_CLAUDE_MEM_DB),
   autoDiscover: z.boolean().default(false),
+  /** remote/export settings for auto-discovered projects; default: copy the first enabled project */
+  discoverTemplate: ProjectConfigSchema.pick({ remote: true, export: true }).optional(),
   contributionRetentionDays: z.number().int().positive().default(DEFAULT_CONTRIBUTION_RETENTION_DAYS),
   profiles: ProfilesConfigSchema.default({}),
   distillation: DistillationConfigSchema.default({}),

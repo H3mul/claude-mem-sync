@@ -34,4 +34,18 @@ describe("discoverProjects", () => {
     const saved = JSON.parse(readFileSync(configPath, "utf-8"));
     expect(saved.projects.fresh.export.tags).toEqual(["#shared"]);
   });
+
+  test("global.discoverTemplate lets discovery start from an empty projects block", async () => {
+    const cfg = parseConfig({
+      global: {
+        devName: "a", claudeMemDbPath: dbPath, autoDiscover: true,
+        discoverTemplate: { remote: { repo: "o/r" }, export: { tags: ["#t"] } },
+      },
+      projects: {},
+    });
+    const next = await discoverProjects(cfg, { configPath });
+    expect(Object.keys(next.projects).sort()).toEqual(["fresh", "known"]);
+    expect(next.projects.known.remote.repo).toBe("o/r");
+    expect(next.projects.known.export.tags).toEqual(["#t"]);
+  });
 });
